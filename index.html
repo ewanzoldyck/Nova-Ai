@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nova AI</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      max-width: 500px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .status {
+      text-align: center;
+      color: #7cff7c;
+      margin-bottom: 20px;
+    }
+
+    #chat {
+      height: 55vh;
+      overflow-y: auto;
+      background: #1b1b1b;
+      border-radius: 15px;
+      padding: 15px;
+    }
+
+    .message {
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 12px;
+    }
+
+    .you {
+      background: #333;
+      text-align: right;
+    }
+
+    .nova {
+      background: #242424;
+    }
+
+    .inputArea {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    input {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 14px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    #micButton {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <h1>🤖 Nova</h1>
+  <div class="status">● Online</div>
+
+  <div id="chat">
+    <div class="message nova">
+      Nova: Good to see you, sir. I'm ready. 👋
+    </div>
+  </div>
+
+  <div class="inputArea">
+    <input id="message" placeholder="Talk to Nova, sir...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <button id="micButton" onclick="startListening()">
+    🎤 Tap to speak
+  </button>
+
+</div>
+
+<script>
+
+const NOVA_URL = "https://script.google.com/macros/s/AKfycby235s0Ig5i9LDtkGB17EuQUpHlyf61nwfNyj8OXE4Hci156VT6zdHbSdSJDvbQzlAZUA/exec";
+
+let recognition;
+
+if ("SpeechRecognition" in window ||
+    "webkitSpeechRecognition" in window) {
+
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  recognition = new SpeechRecognition();
+
+  recognition.lang = "en-IN";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = function() {
+    document.getElementById("micButton").textContent =
+      "🔴 Listening...";
+  };
+
+  recognition.onresult = function(event) {
+
+    const text =
+      event.results[0][0].transcript;
+
+    document.getElementById("message").value = text;
+
+    sendMessage();
+  };
+
+  recognition.onend = function() {
+    document.getElementById("micButton").textContent =
+      "🎤 Tap to speak";
+  };
+
+  recognition.onerror = function(event) {
+    alert("Microphone error: " + event.error);
+  };
+
+}
+
+
+function startListening() {
+
+  if (!recognition) {
+    alert("Voice recognition isn't supported in this browser.");
+    return;
+  }
+
+  recognition.start();
+}
+
+
+function addMessage(text, type) {
+
+  const chat = document.getElementById("chat");
+
+  const div = document.createElement("div");
+
+  div.className = "message " + type;
+
+  div.textContent = text;
+
+  chat.appendChild(div);
+
+  chat.scrollTop = chat.scrollHeight;
+
+  return div;
+}
+
+
+function speak(text) {
+
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+
+  speechSynthesis.cancel();
+
+  const voice =
+    new SpeechSynthesisUtterance(text);
+
+  voice.lang = "en-IN";
+  voice.rate = 1;
+  voice.pitch = 1;
+
+  speechSynthesis.speak(voice);
+}
+
+
+async function sendMessage() {
+
+  const input =
+    document.getElementById("message");
+
+  const message =
+    input.value.trim();
+
+  if (!message) return;
+
+  addMessage(
+    "You: " + message,
+    "you"
+  );
+
+  input.value = "";
+
+  const thinking =
+    addMessage(
+      "Nova is thinking... 🤔",
+      "nova"
+    );
+
+  try {
+
+    const response =
+      await fetch(NOVA_URL, {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "text/plain"
+        },
+
+        body: JSON.stringify({
+          message: message
+        })
+
+      });
+
+    const data =
+      await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error);
+    }
+
+    thinking.textContent =
+      "Nova: " + data.reply;
+
+    speak(data.reply);
+
+  } catch (error) {
+
+    thinking.textContent =
+      "Nova: Sorry, sir. " + error.message;
+
+  }
+}
+
+</script>
+
+</body>
+</html>
