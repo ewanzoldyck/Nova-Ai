@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby235s0Ig5i9LDtkGB17EuQUpHlyf61nwfNyj8OXE4Hci156VT6zdHbSdSJDvbQzlAZUA/exec";
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nova AI</title>
 
@@ -24,7 +27,6 @@
 
     .status {
       text-align: center;
-      color: #7cff7c;
       margin-bottom: 20px;
     }
 
@@ -40,6 +42,8 @@
       padding: 12px;
       margin: 10px 0;
       border-radius: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
     }
 
     .you {
@@ -76,6 +80,11 @@
       width: 100%;
       margin-top: 10px;
     }
+
+    #micButton.listening {
+      background: #d33;
+      color: white;
+    }
   </style>
 </head>
 
@@ -88,12 +97,16 @@
 
   <div id="chat">
     <div class="message nova">
-      Nova: Good to see you, sir. I'm ready. 👋
+      Nova: Hello sir, how can I help you today?
     </div>
   </div>
 
   <div class="inputArea">
-    <input id="message" placeholder="Talk to Nova, sir...">
+    <input id="message"
+           type="text"
+           placeholder="Talk to Nova, sir..."
+           onkeydown="if(event.key === 'Enter') sendMessage()">
+
     <button onclick="sendMessage()">Send</button>
   </div>
 
@@ -105,16 +118,17 @@
 
 <script>
 
-const NOVA_URL = "https://script.google.com/macros/s/AKfycby235s0Ig5i9LDtkGB17EuQUpHlyf61nwfNyj8OXE4Hci156VT6zdHbSdSJDvbQzlAZUA/exec";
+const APPS_SCRIPT_URL =
+  "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
-let recognition;
 
-if ("SpeechRecognition" in window ||
-    "webkitSpeechRecognition" in window) {
+let recognition = null;
 
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
 
   recognition = new SpeechRecognition();
 
@@ -123,8 +137,12 @@ if ("SpeechRecognition" in window ||
   recognition.interimResults = false;
 
   recognition.onstart = function() {
-    document.getElementById("micButton").textContent =
-      "🔴 Listening...";
+
+    const button =
+      document.getElementById("micButton");
+
+    button.textContent = "🔴 Listening...";
+    button.classList.add("listening");
   };
 
   recognition.onresult = function(event) {
@@ -137,22 +155,30 @@ if ("SpeechRecognition" in window ||
     sendMessage();
   };
 
-  recognition.onend = function() {
-    document.getElementById("micButton").textContent =
-      "🎤 Tap to speak";
-  };
-
   recognition.onerror = function(event) {
+
     alert("Microphone error: " + event.error);
   };
 
+  recognition.onend = function() {
+
+    const button =
+      document.getElementById("micButton");
+
+    button.textContent = "🎤 Tap to speak";
+    button.classList.remove("listening");
+  };
 }
 
 
 function startListening() {
 
   if (!recognition) {
-    alert("Voice recognition isn't supported in this browser.");
+
+    alert(
+      "Voice recognition is not supported by this browser."
+    );
+
     return;
   }
 
@@ -162,52 +188,59 @@ function startListening() {
 
 function addMessage(text, type) {
 
-  const chat = document.getElementById("chat");
+  const chat =
+    document.getElementById("chat");
 
-  const div = document.createElement("div");
+  const div =
+    document.createElement("div");
 
-  div.className = "message " + type;
+  div.className =
+    "message " + type;
 
   div.textContent = text;
 
   chat.appendChild(div);
 
-  chat.scrollTop = chat.scrollHeight;
-
-  return div;
+  chat.scrollTop =
+    chat.scrollHeight;
 }
 
 
 function speak(text) {
+
   if (!("speechSynthesis" in window)) return;
 
   speechSynthesis.cancel();
 
-  const voices = speechSynthesis.getVoices();
+  const voices =
+    speechSynthesis.getVoices();
 
   const preferredVoice =
     voices.find(v =>
       v.lang.startsWith("en") &&
       /female|zira|samantha|google uk english female/i.test(v.name)
     ) ||
-    voices.find(v => v.lang.startsWith("en"));
+    voices.find(v =>
+      v.lang.startsWith("en")
+    );
 
-  const voice = new SpeechSynthesisUtterance(text);
+  const utterance =
+    new SpeechSynthesisUtterance(text);
 
   if (preferredVoice) {
-    voice.voice = preferredVoice;
+    utterance.voice = preferredVoice;
   }
 
-  voice.lang = "en-IN";
-  voice.rate = 0.92;
-  voice.pitch = 0.85;
-  voice.volume = 1;
+  utterance.lang = "en-IN";
+  utterance.rate = 0.92;
+  utterance.pitch = 0.85;
+  utterance.volume = 1;
 
-  speechSynthesis.speak(voice);
+  speechSynthesis.speak(utterance);
 }
 
 
-async function sendMessage() {
+function sendMessage() {
 
   const input =
     document.getElementById("message");
@@ -225,46 +258,74 @@ async function sendMessage() {
   input.value = "";
 
   const thinking =
-    addMessage(
-      "Nova is thinking... 🤔",
-      "nova"
-    );
+    document.createElement("div");
 
-  try {
+  thinking.className =
+    "message nova";
 
-    const response =
-      await fetch(NOVA_URL, {
+  thinking.textContent =
+    "Nova: Thinking...";
 
-        method: "POST",
+  document.getElementById("chat")
+    .appendChild(thinking);
 
-        headers: {
-          "Content-Type": "text/plain"
-        },
 
-        body: JSON.stringify({
-          message: message
-        })
+  const callbackName =
+    "novaCallback_" + Date.now();
 
-      });
 
-    const data =
-      await response.json();
+  window[callbackName] =
+    function(data) {
 
-    if (!data.success) {
-      throw new Error(data.error);
+      if (data.success) {
+
+        thinking.textContent =
+          "Nova: " + data.reply;
+
+        speak(data.reply);
+
+      } else {
+
+        thinking.textContent =
+          "Nova: Sorry, sir. " +
+          (data.error || "Something went wrong.");
+      }
+
+      delete window[callbackName];
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+
+  const script =
+    document.createElement("script");
+
+
+  script.src =
+    APPS_SCRIPT_URL +
+    "?action=ask" +
+    "&message=" +
+    encodeURIComponent(message) +
+    "&callback=" +
+    callbackName;
+
+
+  script.onerror = function() {
+
+    thinking.textContent =
+      "Nova: Sorry, sir. I couldn't connect.";
+
+    delete window[callbackName];
+
+    if (script.parentNode) {
+      script.parentNode.removeChild(script);
     }
+  };
 
-    thinking.textContent =
-      "Nova: " + data.reply;
 
-    speak(data.reply);
-
-  } catch (error) {
-
-    thinking.textContent =
-      "Nova: Sorry, sir. " + error.message;
-
-  }
+  document.body.appendChild(script);
 }
 
 </script>
